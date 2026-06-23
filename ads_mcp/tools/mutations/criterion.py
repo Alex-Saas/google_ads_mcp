@@ -23,6 +23,7 @@ from ads_mcp.tools.mutations.common import _get_client
 from ads_mcp.tools.mutations.common import _handle_google_ads_error
 from ads_mcp.tools.mutations.common import _resolve_enum
 from google.ads.googleads.errors import GoogleAdsException
+from google.protobuf import field_mask_pb2
 
 
 @mcp.tool()
@@ -38,7 +39,7 @@ def create_keywords(
       customer_id: Google Ads customer ID (digits only).
       ad_group_resource_name: Resource name from create_ad_group.
       keywords: List of keyword dicts, each with: - text: The keyword text
-        (e.g., "ss john barry silver coin") - match_type: EXACT, PHRASE, or
+        (e.g., "ielts test preparation") - match_type: EXACT, PHRASE, or
         BROAD
       login_customer_id: MCC account ID if customer is managed.
 
@@ -126,6 +127,128 @@ def create_negative_campaign_keywords(
 
 
 @mcp.tool()
+def update_keyword_status(
+    customer_id: str,
+    ad_group_criterion_resource_name: str,
+    status: str,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Updates a keyword's status (enable or pause).
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      ad_group_criterion_resource_name: Full resource name of the keyword
+        criterion (e.g., "customers/123/adGroupCriteria/456~789").
+      status: New status: ENABLED or PAUSED.
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the updated criterion resource_name.
+  """
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("AdGroupCriterionService")
+
+  criterion = resource_types.AdGroupCriterion(
+      resource_name=ad_group_criterion_resource_name,
+      status=_resolve_enum(
+          enum_types.AdGroupCriterionStatusEnum.AdGroupCriterionStatus,
+          status,
+          "status",
+      ),
+  )
+
+  operation = service_types.AdGroupCriterionOperation(update=criterion)
+  operation.update_mask.CopyFrom(field_mask_pb2.FieldMask(paths=["status"]))
+
+  try:
+    response = service.mutate_ad_group_criteria(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
+def update_keyword_bid(
+    customer_id: str,
+    ad_group_criterion_resource_name: str,
+    cpc_bid_micros: int,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Updates a keyword's CPC bid.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      ad_group_criterion_resource_name: Full resource name of the keyword
+        criterion (e.g., "customers/123/adGroupCriteria/456~789").
+      cpc_bid_micros: New max CPC bid in micros (e.g., 1500000 = $1.50).
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the updated criterion resource_name.
+  """
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("AdGroupCriterionService")
+
+  criterion = resource_types.AdGroupCriterion(
+      resource_name=ad_group_criterion_resource_name,
+      cpc_bid_micros=cpc_bid_micros,
+  )
+
+  operation = service_types.AdGroupCriterionOperation(update=criterion)
+  operation.update_mask.CopyFrom(
+      field_mask_pb2.FieldMask(paths=["cpc_bid_micros"])
+  )
+
+  try:
+    response = service.mutate_ad_group_criteria(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
+def remove_keyword(
+    customer_id: str,
+    ad_group_id: str,
+    criterion_id: str,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Removes a keyword from an ad group.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      ad_group_id: Ad group ID (digits only).
+      criterion_id: Keyword criterion ID to remove (digits only).
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the removed resource_name.
+  """
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("AdGroupCriterionService")
+
+  resource_name = service.ad_group_criterion_path(
+      customer_id, ad_group_id, criterion_id
+  )
+  operation = service_types.AdGroupCriterionOperation(remove=resource_name)
+
+  try:
+    response = service.mutate_ad_group_criteria(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"removed": response.results[0].resource_name}
+
+
+@mcp.tool()
 def create_geo_targeting(
     customer_id: str,
     campaign_resource_name: str,
@@ -138,7 +261,7 @@ def create_geo_targeting(
       customer_id: Google Ads customer ID (digits only).
       campaign_resource_name: Resource name from create_search_campaign.
       geo_target_constant_ids: List of geo target constant IDs. Common values:
-        2840 (United States), 2124 (Canada).
+        2682 (Saudi Arabia), 2840 (United States).
       login_customer_id: MCC account ID if customer is managed.
 
   Returns:

@@ -38,7 +38,7 @@ def create_ad_group(
 
   Args:
       customer_id: Google Ads customer ID (digits only).
-      name: Ad group name (e.g., "S.S. John Barry Shipwreck").
+      name: Ad group name (e.g., "IELTS Preparation Keywords").
       campaign_resource_name: Resource name from create_search_campaign.
       cpc_bid_micros: Max CPC bid in micros (1000000 = $1.00).
       status: ENABLED or PAUSED. Default ENABLED.
@@ -102,6 +102,47 @@ def update_ad_group_status(
 
   operation = service_types.AdGroupOperation(update=ad_group)
   operation.update_mask.CopyFrom(field_mask_pb2.FieldMask(paths=["status"]))
+
+  try:
+    response = service.mutate_ad_groups(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
+def update_ad_group_bid(
+    customer_id: str,
+    ad_group_resource_name: str,
+    cpc_bid_micros: int,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Updates an ad group's CPC bid.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      ad_group_resource_name: Full resource name of the ad group.
+      cpc_bid_micros: New max CPC bid in micros (e.g., 2000000 = $2.00).
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the updated ad group resource_name.
+  """
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("AdGroupService")
+
+  ad_group = resource_types.AdGroup(
+      resource_name=ad_group_resource_name,
+      cpc_bid_micros=cpc_bid_micros,
+  )
+
+  operation = service_types.AdGroupOperation(update=ad_group)
+  operation.update_mask.CopyFrom(
+      field_mask_pb2.FieldMask(paths=["cpc_bid_micros"])
+  )
 
   try:
     response = service.mutate_ad_groups(
