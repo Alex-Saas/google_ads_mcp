@@ -2,15 +2,20 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install system dependencies for building Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy project files
 COPY . .
 
 # Install the project and all dependencies
 RUN pip install --no-cache-dir .
 
-# FastMCP serves on port 8000 by default
-# Set container port to 8000 in Cloud Run service settings
+# Cloud Run sets PORT env var (default 8000)
+ENV PORT=8000
 EXPOSE 8000
 
-# Run the MCP server in streamable-http mode
+# Run the MCP server
 CMD ["run-mcp-server"]
