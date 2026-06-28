@@ -30,6 +30,7 @@ def create_campaign_budget(
     customer_id: str,
     name: str,
     amount_micros: int,
+    explicitly_shared: bool = False,
     delivery_method: str = "STANDARD",
     login_customer_id: str | None = None,
 ) -> dict[str, str]:
@@ -39,6 +40,8 @@ def create_campaign_budget(
       customer_id: Google Ads customer ID (digits only).
       name: Name for the budget (e.g., "GoIELTS Daily Budget").
       amount_micros: Daily budget in micros (e.g., 4000000 = $4.00).
+      explicitly_shared: If False (default), budget is dedicated to one
+        campaign. If True, budget can be shared across multiple campaigns.
       delivery_method: STANDARD or ACCELERATED. Default STANDARD.
       login_customer_id: MCC account ID if customer is managed.
 
@@ -51,6 +54,7 @@ def create_campaign_budget(
   budget = resource_types.CampaignBudget(
       name=name,
       amount_micros=amount_micros,
+      explicitly_shared=explicitly_shared,
       delivery_method=_resolve_enum(
           enum_types.BudgetDeliveryMethodEnum.BudgetDeliveryMethod,
           delivery_method,
