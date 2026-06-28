@@ -204,3 +204,190 @@ def update_campaign_geo_target_type(
     _handle_google_ads_error(e)
 
   return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
+def update_campaign_tracking_template(
+    customer_id: str,
+    campaign_resource_name: str,
+    tracking_url_template: str | None = None,
+    final_url_suffix: str | None = None,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Updates a campaign's URL tracking template and/or final URL suffix.
+
+  Use tracking_url_template to append UTM parameters via ValueTrack tags.
+  Use final_url_suffix to append static parameters directly to final URLs.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      campaign_resource_name: Full resource name of the campaign (e.g.,
+        "customers/123/campaigns/456").
+      tracking_url_template: URL template with ValueTrack tags (e.g.,
+        "{lpurl}?utm_source=google&utm_medium=cpc&utm_term={keyword}").
+        Pass empty string to clear the template.
+      final_url_suffix: Parameters appended directly to final URLs without
+        redirect (e.g., "utm_campaign=brand&utm_content={adgroupid}").
+        Pass empty string to clear the suffix.
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the updated campaign resource_name.
+  """
+  if tracking_url_template is None and final_url_suffix is None:
+    raise ToolError(
+        "At least one of tracking_url_template or final_url_suffix must be provided."
+    )
+
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("CampaignService")
+
+  campaign = resource_types.Campaign(resource_name=campaign_resource_name)
+  field_mask_paths = []
+
+  if tracking_url_template is not None:
+    campaign.tracking_url_template = tracking_url_template
+    field_mask_paths.append("tracking_url_template")
+
+  if final_url_suffix is not None:
+    campaign.final_url_suffix = final_url_suffix
+    field_mask_paths.append("final_url_suffix")
+
+  operation = service_types.CampaignOperation(update=campaign)
+  operation.update_mask.CopyFrom(
+      field_mask_pb2.FieldMask(paths=field_mask_paths)
+  )
+
+  try:
+    response = service.mutate_campaigns(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
+def update_campaign_dates(
+    customer_id: str,
+    campaign_resource_name: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Updates a campaign's start and/or end date.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      campaign_resource_name: Full resource name of the campaign (e.g.,
+        "customers/123/campaigns/456").
+      start_date: Campaign start date in YYYYMMDD format (e.g., "20250901").
+        Cannot be in the past for active campaigns.
+      end_date: Campaign end date in YYYYMMDD format (e.g., "20251231").
+        Pass empty string "" to remove an existing end date (run indefinitely).
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the updated campaign resource_name.
+  """
+  if start_date is None and end_date is None:
+    raise ToolError(
+        "At least one of start_date or end_date must be provided."
+    )
+
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("CampaignService")
+
+  campaign = resource_types.Campaign(resource_name=campaign_resource_name)
+  field_mask_paths = []
+
+  if start_date is not None:
+    campaign.start_date = start_date
+    field_mask_paths.append("start_date")
+
+  if end_date is not None:
+    campaign.end_date = end_date
+    field_mask_paths.append("end_date")
+
+  operation = service_types.CampaignOperation(update=campaign)
+  operation.update_mask.CopyFrom(
+      field_mask_pb2.FieldMask(paths=field_mask_paths)
+  )
+
+  try:
+    response = service.mutate_campaigns(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
+def update_campaign_network_settings(
+    customer_id: str,
+    campaign_resource_name: str,
+    target_google_search: bool | None = None,
+    target_search_network: bool | None = None,
+    target_content_network: bool | None = None,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Updates network settings on an existing campaign.
+
+  Allows enabling or disabling Google Search, Search Partners, or Display
+  Network independently without recreating the campaign.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      campaign_resource_name: Full resource name of the campaign (e.g.,
+        "customers/123/campaigns/456").
+      target_google_search: Whether to show ads on Google Search. Set False
+        to disable (unusual for Search campaigns).
+      target_search_network: Whether to show ads on search partner sites.
+        Recommended False — Search Partners showed 71% lower CVR historically.
+      target_content_network: Whether to show ads on Google Display Network.
+        Set True to expand to display placements.
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the updated campaign resource_name.
+  """
+  if all(
+      v is None
+      for v in [target_google_search, target_search_network, target_content_network]
+  ):
+    raise ToolError("At least one network setting must be provided.")
+
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("CampaignService")
+
+  campaign = resource_types.Campaign(resource_name=campaign_resource_name)
+  field_mask_paths = []
+
+  if target_google_search is not None:
+    campaign.network_settings.target_google_search = target_google_search
+    field_mask_paths.append("network_settings.target_google_search")
+
+  if target_search_network is not None:
+    campaign.network_settings.target_search_network = target_search_network
+    field_mask_paths.append("network_settings.target_search_network")
+
+  if target_content_network is not None:
+    campaign.network_settings.target_content_network = target_content_network
+    field_mask_paths.append("network_settings.target_content_network")
+
+  operation = service_types.CampaignOperation(update=campaign)
+  operation.update_mask.CopyFrom(
+      field_mask_pb2.FieldMask(paths=field_mask_paths)
+  )
+
+  try:
+    response = service.mutate_campaigns(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}

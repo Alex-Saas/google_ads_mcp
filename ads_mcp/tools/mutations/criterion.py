@@ -22,6 +22,7 @@ from ads_mcp.tools._ads_api import service_types
 from ads_mcp.tools.mutations.common import _get_client
 from ads_mcp.tools.mutations.common import _handle_google_ads_error
 from ads_mcp.tools.mutations.common import _resolve_enum
+from fastmcp.exceptions import ToolError
 from google.ads.googleads.errors import GoogleAdsException
 from google.protobuf import field_mask_pb2
 
@@ -374,3 +375,147 @@ def exclude_geo_targets(
     _handle_google_ads_error(e)
 
   return {"resource_names": [r.resource_name for r in response.results]}
+
+
+@mcp.tool()
+def update_keyword_final_url(
+    customer_id: str,
+    ad_group_criterion_resource_name: str,
+    final_url: str,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Sets or updates a keyword's final URL (keyword-level destination override).
+
+  Keyword-level final URLs override the ad-level final URL for this specific
+  keyword, allowing different landing pages per keyword without creating
+  separate ads.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      ad_group_criterion_resource_name: Full resource name of the keyword
+        criterion (e.g., "customers/123/adGroupCriteria/456~789").
+      final_url: The destination URL for this keyword (e.g.,
+        "https://goielts.ai/lp/ielts-writing/?kw=ielts+writing+test").
+        Must use HTTPS. Pass empty string to clear the keyword-level URL
+        and fall back to the ad-level final URL.
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the updated criterion resource_name.
+  """
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("AdGroupCriterionService")
+
+  criterion = resource_types.AdGroupCriterion(
+      resource_name=ad_group_criterion_resource_name,
+  )
+  if final_url:
+    criterion.final_urls.append(final_url)
+
+  operation = service_types.AdGroupCriterionOperation(update=criterion)
+  operation.update_mask.CopyFrom(
+      field_mask_pb2.FieldMask(paths=["final_urls"])
+  )
+
+  try:
+    response = service.mutate_ad_group_criteria(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
+def create_image_asset(
+    customer_id: str,
+    name: str,
+    image_url: str,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Creates an image asset from a public URL (first step for image extensions).
+
+  Downloads the image from the URL and uploads it as a Google Ads image asset.
+  After creation, use add_image_extension_to_campaign to link it to a campaign.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      name: A descriptive name for the image asset (e.g., "GoIELTS Hero Banner").
+      image_url: Public URL of the image to upload. Requirements for image
+        extensions: JPEG or PNG, minimum 300x300px, maximum 5120x5120px,
+        max file size 5MB. Landscape ratio (1.91:1) recommended.
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the created asset resource_name (use this in
+      add_image_extension_to_campaign).
+  """
+  import urllib.request as _url_req
+
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("AssetService")
+
+  with _url_req.urlopen(image_url) as http_response:  # pylint: disable=consider-using-with
+    image_data = http_response.read()
+
+  asset = resource_types.Asset(
+      name=name,
+      type_=enum_types.AssetTypeEnum.AssetType.IMAGE,
+      image_asset=common_types.ImageAsset(data=image_data),
+  )
+
+  operation = service_types.AssetOperation(create=asset)
+
+  try:
+    response = service.mutate_assets(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
+def add_image_extension_to_campaign(
+    customer_id: str,
+    campaign_resource_name: str,
+    asset_resource_name: str,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Links an image asset to a campaign as an image extension.
+
+  Call create_image_asset first to get the asset_resource_name, then
+  use this tool to attach it to the campaign.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      campaign_resource_name: Full resource name of the campaign (e.g.,
+        "customers/123/campaigns/456").
+      asset_resource_name: Asset resource name from create_image_asset (e.g.,
+        "customers/123/assets/789").
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the created campaign asset resource_name.
+  """
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("CampaignAssetService")
+
+  campaign_asset = resource_types.CampaignAsset(
+      campaign=campaign_resource_name,
+      asset=asset_resource_name,
+      field_type=enum_types.AssetFieldTypeEnum.AssetFieldType.IMAGE,
+  )
+
+  operation = service_types.CampaignAssetOperation(create=campaign_asset)
+
+  try:
+    response = service.mutate_campaign_assets(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}
