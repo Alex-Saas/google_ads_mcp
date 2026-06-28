@@ -113,6 +113,46 @@ def attach_sitelink_to_campaign(
 
 
 @mcp.tool()
+def attach_sitelink_to_ad_group(
+    customer_id: str,
+    ad_group_resource_name: str,
+    asset_resource_name: str,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Attaches a sitelink asset to an ad group.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      ad_group_resource_name: Resource name of the ad group.
+      asset_resource_name: Resource name of the sitelink asset
+        from create_sitelink_asset.
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the created ad_group_asset resource_name.
+  """
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("AdGroupAssetService")
+
+  ad_group_asset = resource_types.AdGroupAsset(
+      ad_group=ad_group_resource_name,
+      asset=asset_resource_name,
+      field_type=enum_types.AssetFieldTypeEnum.AssetFieldType.SITELINK,
+  )
+
+  operation = service_types.AdGroupAssetOperation(create=ad_group_asset)
+
+  try:
+    response = service.mutate_ad_group_assets(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
 def remove_sitelink_from_campaign(
     customer_id: str,
     campaign_asset_resource_name: str,
@@ -138,6 +178,40 @@ def remove_sitelink_from_campaign(
 
   try:
     response = service.mutate_campaign_assets(
+        customer_id=customer_id, operations=[operation]
+    )
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+
+  return {"removed": response.results[0].resource_name}
+
+
+@mcp.tool()
+def remove_sitelink_from_ad_group(
+    customer_id: str,
+    ad_group_asset_resource_name: str,
+    login_customer_id: str | None = None,
+) -> dict[str, str]:
+  """Removes a sitelink from an ad group.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      ad_group_asset_resource_name: Full resource name of the ad group asset
+        (e.g., "customers/123/adGroupAssets/456~789~SITELINK").
+      login_customer_id: MCC account ID if customer is managed.
+
+  Returns:
+      Dict with the removed resource_name.
+  """
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("AdGroupAssetService")
+
+  operation = service_types.AdGroupAssetOperation(
+      remove=ad_group_asset_resource_name
+  )
+
+  try:
+    response = service.mutate_ad_group_assets(
         customer_id=customer_id, operations=[operation]
     )
   except GoogleAdsException as e:
