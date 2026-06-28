@@ -26,106 +26,62 @@ from google.protobuf import field_mask_pb2
 
 
 @mcp.tool()
-def create_ad_group(
-    customer_id: str,
-    name: str,
-    campaign_resource_name: str,
-    cpc_bid_micros: int = 1000000,
-    status: str = "ENABLED",
-    login_customer_id: str | None = None,
-) -> dict[str, str]:
-  """Creates an ad group within a campaign.
-
-  Args:
-      customer_id: Google Ads customer ID (digits only).
-      name: Ad group name (e.g., "IELTS Preparation Keywords").
-      campaign_resource_name: Resource name from create_search_campaign.
-      cpc_bid_micros: Max CPC bid in micros (1000000 = $1.00).
-      status: ENABLED or PAUSED. Default ENABLED.
-      login_customer_id: MCC account ID if customer is managed.
-
-  Returns:
-      Dict with the ad_group resource_name.
-  """
+def create_ad_group(customer_id: str, name: str, campaign_resource_name: str, cpc_bid_micros: int = 1000000, status: str = "ENABLED", login_customer_id: str | None = None) -> dict[str, str]:
+  """Creates an ad group. Args: customer_id: Google Ads customer ID. name: Ad group name. campaign_resource_name: From create_search_campaign. cpc_bid_micros: Max CPC in micros. status: ENABLED or PAUSED. login_customer_id: MCC account ID if managed."""
   ads_client = _get_client(login_customer_id)
   service = ads_client.get_service("AdGroupService")
-
-  ad_group = resource_types.AdGroup(
-      name=name,
-      campaign=campaign_resource_name,
-      status=_resolve_enum(
-          enum_types.AdGroupStatusEnum.AdGroupStatus, status, "status"
-      ),
-      type_=enum_types.AdGroupTypeEnum.AdGroupType.SEARCH_STANDARD,
-      cpc_bid_micros=cpc_bid_micros,
-  )
-
+  ad_group = resource_types.AdGroup(name=name, campaign=campaign_resource_name, status=_resolve_enum(enum_types.AdGroupStatusEnum.AdGroupStatus, status, "status"), type_=enum_types.AdGroupTypeEnum.AdGroupType.SEARCH_STANDARD, cpc_bid_micros=cpc_bid_micros)
   operation = service_types.AdGroupOperation(create=ad_group)
   try:
-    response = service.mutate_ad_groups(
-        customer_id=customer_id, operations=[operation]
-    )
+    response = service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
   except GoogleAdsException as e:
     _handle_google_ads_error(e)
-
-  resource_name = response.results[0].resource_name
-  return {"resource_name": resource_name}
+  return {"resource_name": response.results[0].resource_name}
 
 
 @mcp.tool()
-def update_ad_group_status(
-    customer_id: str,
-    ad_group_resource_name: str,
-    status: str,
-    login_customer_id: str | None = None,
-) -> dict[str, str]:
-  """Updates an ad group's status.
-
-  Args:
-      customer_id: Google Ads customer ID (digits only).
-      ad_group_resource_name: Full resource name of the ad group.
-      status: New status: ENABLED or PAUSED.
-      login_customer_id: MCC account ID if customer is managed.
-
-  Returns:
-      Dict with the updated ad group resource_name.
-  """
+def update_ad_group_status(customer_id: str, ad_group_resource_name: str, status: str, login_customer_id: str | None = None) -> dict[str, str]:
+  """Updates an ad group's status. Args: customer_id: Google Ads customer ID. ad_group_resource_name: Full resource name. status: ENABLED or PAUSED. login_customer_id: MCC account ID if managed."""
   ads_client = _get_client(login_customer_id)
   service = ads_client.get_service("AdGroupService")
-
-  ad_group = resource_types.AdGroup(
-      resource_name=ad_group_resource_name,
-      status=_resolve_enum(
-          enum_types.AdGroupStatusEnum.AdGroupStatus, status, "status"
-      ),
-  )
-
+  ad_group = resource_types.AdGroup(resource_name=ad_group_resource_name, status=_resolve_enum(enum_types.AdGroupStatusEnum.AdGroupStatus, status, "status"))
   operation = service_types.AdGroupOperation(update=ad_group)
   operation.update_mask.CopyFrom(field_mask_pb2.FieldMask(paths=["status"]))
-
   try:
-    response = service.mutate_ad_groups(
-        customer_id=customer_id, operations=[operation]
-    )
+    response = service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
   except GoogleAdsException as e:
     _handle_google_ads_error(e)
-
   return {"resource_name": response.results[0].resource_name}
 
 
 @mcp.tool()
-def update_ad_group_bid(
+def update_ad_group_bid(customer_id: str, ad_group_resource_name: str, cpc_bid_micros: int, login_customer_id: str | None = None) -> dict[str, str]:
+  """Updates an ad group's CPC bid. Args: customer_id: Google Ads customer ID. ad_group_resource_name: Full resource name. cpc_bid_micros: New max CPC in micros. login_customer_id: MCC account ID if managed."""
+  ads_client = _get_client(login_customer_id)
+  service = ads_client.get_service("AdGroupService")
+  ad_group = resource_types.AdGroup(resource_name=ad_group_resource_name, cpc_bid_micros=cpc_bid_micros)
+  operation = service_types.AdGroupOperation(update=ad_group)
+  operation.update_mask.CopyFrom(field_mask_pb2.FieldMask(paths=["cpc_bid_micros"]))
+  try:
+    response = service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
+  except GoogleAdsException as e:
+    _handle_google_ads_error(e)
+  return {"resource_name": response.results[0].resource_name}
+
+
+@mcp.tool()
+def update_ad_group_name(
     customer_id: str,
     ad_group_resource_name: str,
-    cpc_bid_micros: int,
+    name: str,
     login_customer_id: str | None = None,
 ) -> dict[str, str]:
-  """Updates an ad group's CPC bid.
+  """Renames an ad group.
 
   Args:
       customer_id: Google Ads customer ID (digits only).
       ad_group_resource_name: Full resource name of the ad group.
-      cpc_bid_micros: New max CPC bid in micros (e.g., 2000000 = $2.00).
+      name: New ad group name.
       login_customer_id: MCC account ID if customer is managed.
 
   Returns:
@@ -136,13 +92,11 @@ def update_ad_group_bid(
 
   ad_group = resource_types.AdGroup(
       resource_name=ad_group_resource_name,
-      cpc_bid_micros=cpc_bid_micros,
+      name=name,
   )
 
   operation = service_types.AdGroupOperation(update=ad_group)
-  operation.update_mask.CopyFrom(
-      field_mask_pb2.FieldMask(paths=["cpc_bid_micros"])
-  )
+  operation.update_mask.CopyFrom(field_mask_pb2.FieldMask(paths=["name"]))
 
   try:
     response = service.mutate_ad_groups(
@@ -155,32 +109,13 @@ def update_ad_group_bid(
 
 
 @mcp.tool()
-def remove_ad_group(
-    customer_id: str,
-    ad_group_resource_name: str,
-    login_customer_id: str | None = None,
-) -> dict[str, str]:
-  """Removes an ad group from a campaign.
-
-  Args:
-      customer_id: Google Ads customer ID (digits only).
-      ad_group_resource_name: Full resource name of the ad group
-        (e.g., "customers/123/adGroups/456").
-      login_customer_id: MCC account ID if customer is managed.
-
-  Returns:
-      Dict with the removed resource_name.
-  """
+def remove_ad_group(customer_id: str, ad_group_resource_name: str, login_customer_id: str | None = None) -> dict[str, str]:
+  """Removes an ad group. Args: customer_id: Google Ads customer ID. ad_group_resource_name: Full resource name. login_customer_id: MCC account ID if managed."""
   ads_client = _get_client(login_customer_id)
   service = ads_client.get_service("AdGroupService")
-
   operation = service_types.AdGroupOperation(remove=ad_group_resource_name)
-
   try:
-    response = service.mutate_ad_groups(
-        customer_id=customer_id, operations=[operation]
-    )
+    response = service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
   except GoogleAdsException as e:
     _handle_google_ads_error(e)
-
   return {"removed": response.results[0].resource_name}
