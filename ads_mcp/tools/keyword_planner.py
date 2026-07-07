@@ -25,7 +25,6 @@ to the account.
 from typing import Any
 
 from ads_mcp.coordinator import mcp_server as mcp
-from ads_mcp.tools._ads_api import common_types
 from ads_mcp.tools._ads_api import enum_types
 from ads_mcp.tools._ads_api import service_types
 from ads_mcp.tools.mutations.common import _get_client
@@ -102,13 +101,13 @@ def generate_keyword_ideas(
   )
 
   if keyword_texts and page_url:
-    request.keyword_and_url_seed = common_types.KeywordAndUrlSeed(
+    request.keyword_and_url_seed = service_types.KeywordAndUrlSeed(
         url=page_url, keywords=keyword_texts
     )
   elif page_url:
-    request.url_seed = common_types.UrlSeed(url=page_url)
+    request.url_seed = service_types.UrlSeed(url=page_url)
   else:
-    request.keyword_seed = common_types.KeywordSeed(keywords=keyword_texts)
+    request.keyword_seed = service_types.KeywordSeed(keywords=keyword_texts)
 
   try:
     response = service.generate_keyword_ideas(request=request)
