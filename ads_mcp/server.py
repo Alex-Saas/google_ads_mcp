@@ -30,7 +30,16 @@ if os.getenv("USE_GOOGLE_OAUTH_ACCESS_TOKEN"):
 
 if os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID") and os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET"):
   base_url = os.getenv("FASTMCP_SERVER_BASE_URL", "http://localhost:8000")
-  mcp_server.auth = GoogleProvider(client_id=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID"), base_url=base_url, required_scopes=["https://www.googleapis.com/auth/adwords"])
+  # NOTE: fastmcp >= 3.x requires client_secret to be passed explicitly;
+  # relying on env auto-discovery raises at startup:
+  #   ValueError: jwt_signing_key is required when upstream_client_secret
+  #   is not provided.
+  mcp_server.auth = GoogleProvider(
+      client_id=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID"),
+      client_secret=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET"),
+      base_url=base_url,
+      required_scopes=["https://www.googleapis.com/auth/adwords"],
+  )
 
 
 def main():
